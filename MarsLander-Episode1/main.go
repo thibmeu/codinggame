@@ -32,7 +32,7 @@ func main() {
 		// fmt.Fprintln(os.Stderr, "Debug messages...")
 
 		// 2 integers: rotate power. rotate is the desired rotation angle (should be 0 for level 1), power is the desired thrust power (0 to 4).
-		if vSpeed < -20 {
+		if vSpeed < -39 {
 			fmt.Println("0 4")
 		} else {
 			fmt.Println("0 0")
