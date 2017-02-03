@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	//"os"
 	"strconv"
 )
 
@@ -21,6 +20,51 @@ type card struct {
 	s suit
 }
 
+func battle(p1, p2 *[]card, i int) (int, int) {
+	if i >= len(*p1) {
+		return -1, len(*p1)-1
+	} else if i >= len(*p2) {
+		return -1, len(*p2)-1
+	}
+	c1, c2 := (*p1)[i], (*p2)[i]
+
+	var player int
+	if c1.r == c2.r {
+
+		var iEnd int
+		player, iEnd = battle(p1, p2, i+4)
+		if i != 0 {
+			return player, iEnd
+		} else {
+			if player == 1 {
+				*p1 = append(*p1, (*p1)[:iEnd+1]...)
+				*p1 = append(*p1, (*p2)[:iEnd+1]...)
+			} else if player == 2 {
+				*p2 = append(*p2, (*p1)[:iEnd+1]...)
+				*p2 = append(*p2, (*p2)[:iEnd+1]...)
+			}
+			*p1 = (*p1)[iEnd+1:]
+			*p2 = (*p2)[iEnd+1:]
+		}
+	} else {
+		if c1.r > c2.r {
+			player = 1
+		} else {
+			player = 2
+		}
+		if i == 0 {
+			if player == 1 {
+				*p1 = append(*p1, c1, c2)
+			} else {
+				*p2 = append(*p2, c1, c2)
+			}
+			*p1 = (*p1)[1:]
+			*p2 = (*p2)[1:]
+		}
+	}
+	return player, i
+}
+
 func main() {
 
 	cards := make([][]card, 2)
@@ -28,45 +72,61 @@ func main() {
 		// n: the number of cards for player
 		var n int
 		fmt.Scan(&n)
+		cards[player] = make([]card, n)
 
 		for i := 0; i < n; i++ {
-			cards[player] = make([]card, n)
 			// cardp: the n cards of player
 			var cardp string
 			fmt.Scan(&cardp)
 
 			var r rank
-			switch strr := cardp[0] {
-			case cardp[1] == '0':
-				r = 10
-			case "J":
+			switch cardp[0] {
+			case '1':
+				r = 1
+				if cardp[1] == '0' {
+					r = 10
+				}
+			case 'J':
 				r = 11
-			case "Q":
+			case 'Q':
 				r = 12
-			case "K":
+			case 'K':
 				r = 13
-			case "A":
+			case 'A':
 				r = 14
 			default:
-				strconv.Atoi(string(strr))
+				j, _ := strconv.Atoi(string(cardp[0]))
+				r = rank(j)
 			}
 
 			var s suit
 			switch cardp[len(cardp)-1] {
-			case "H":
+			case 'H':
 				s = HEART
-			case "D":
+			case 'D':
 				s = DIAMOND
-			case "C":
+			case 'C':
 				s = CLUB
-			case "S":
+			case 'S':
 				s = SPADE
+			default:
+				s = -1
 			}
 
 			cards[player][i] = card{r, s}
 		}
 	}
 
-	//fmt.Fprintln(os.Stderr, "Debug messages...")
-	fmt.Println("PAT")// Write answer to stdout
+	turn, player := 0, 0
+	for len(cards[0]) > 0 && len(cards[1]) > 0 {
+		player, _ = battle(&cards[0], &cards[1], 0)
+		turn++
+	}
+
+	switch player {
+	case -1:
+		fmt.Println("PAT")
+	default:
+		fmt.Println(player, turn);
+	}
 }
