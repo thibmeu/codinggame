@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
+	"os"
 )
-//import "os"
 
 /**
  * Auto-generated code below aims at helping you parse
@@ -67,17 +67,20 @@ func (g graph) neighbours(a int) []int {
 	return result
 }
 
-func (g graph) ranks() ([]int, int) {
+func (g graph) ranks() ([]int, int, []int) {
 	gateways := make([]int, 0)
 	var skynet int
+	nodes := make([]int, 0)
 	for i, r := range g.gateways {
 		if r == GATEWAY {
 			gateways = append(gateways, i)
 		} else if r == SKYNET {
 			skynet = i
+		} else if r == NORMAL {
+			nodes = append(nodes, i)
 		}
 	}
-	return gateways, skynet
+	return gateways, skynet, nodes
 }
 
 func (g graph) isGateway(a int) bool {
@@ -96,9 +99,7 @@ func (g graph) bfs(start, end int) (int, int, int) {
 		a, b, dist := queue[0], queue[1], queue[2]
 		dejaVu[a] = true
 
-		//fmt.Println(g.neighbours(a), dejaVu, a)
-
-		if g.isGateway(a) {
+		if a == end {
 			if a > b {
 				a, b = b, a
 			}
@@ -117,11 +118,84 @@ func (g graph) bfs(start, end int) (int, int, int) {
 }
 
 func weakLink(g graph) (int, int) {
-	gateways, skynet := g.ranks()
-	minDist, minA, minB := 1000*1000*1000, skynet, gateways[0]
+	gateways, skynet, nodes := g.ranks()
 
+	for _, n := range g.neighbours(skynet) {
+		if g.isGateway(n) {
+			if n > skynet {
+				return skynet, n
+			}
+			return n, skynet
+		}
+	}
+
+	minDist, minA, minB := 1000*1000*1000, skynet, nodes[0]
+	fmt.Fprintln(os.Stderr, "Skynet not close to Gateway")
+
+	//for _, node := range nodes {
+	//	nGateway := 0
+	//	for _, n := range g.neighbours(node) {
+	//		if g.isGateway(n) {
+	//			nGateway++
+	//			if dist, _, _ := g.bfs(skynet, node); dist < minDist {
+	//				if nGateway == 2 {
+	//					minDist = dist
+	//					if n > node {
+	//						minA, minB = node, n
+	//					}
+	//					minA, minB = n, node
+	//				}
+	//			}
+	//		}
+	//	}
+	//}
+	//if minDist != 1000*1000*1000 {
+	//	return minA, minB
+	//}
+
+	dejaVu := make(map[int]bool)
+	queue := make([]int, 0)
+	queue = append(queue, skynet)
+	for len(queue) != 0 {
+		node := queue[0]
+		if _, isDejaVu := dejaVu[node]; isDejaVu {
+			queue = queue[1:]
+			continue
+		}
+		dejaVu[node] = true
+		// On regarde les noeuds autours
+		for _, n := range g.neighbours(node) {
+			//On compte le nombre de Gateway de ces noeuds
+			nGateway, gateway := 0, -1
+			for _, nn := range g.neighbours(n) {
+				if g.isGateway(nn) {
+					nGateway++
+					gateway = nn
+				}
+			}
+
+			if nGateway == 1 {
+				queue = append(queue, n)
+			} else if nGateway == 2 {
+				if gateway < n {
+					return gateway, n
+				}
+				return n, gateway
+			}
+		}
+
+		queue = queue[1:]
+	}
+
+	fmt.Fprintln(os.Stderr, "No node with to gateway neighbour")
+
+	minDist, minA, minB = 1000*1000*1000, skynet, gateways[0]
 	for _, gateway := range gateways {
-		if dist, a, b := g.bfs(skynet, gateway); dist < minDist {
+		if len(g.neighbours(gateway)) == 0 {
+			continue
+		}
+		if dist, a, b := g.bfs(skynet, gateway); dist < minDist ||
+			(dist == minDist && len(g.neighbours(a)) > len(g.neighbours(minA))) {
 			minDist, minA, minB = dist, a, b
 		}
 	}
@@ -145,6 +219,8 @@ func main() {
 		var N1, N2 int
 		fmt.Scan(&N1, &N2)
 		g.add(N1, N2, LINK)
+		g.grant(N1, NORMAL)
+		g.grant(N2, NORMAL)
 	}
 	for i := 0; i < E; i++ {
 		// EI: the index of a gateway node
