@@ -1,12 +1,28 @@
 package main
 
 import "fmt"
+
 //import "os"
 
 /**
  * Auto-generated code below aims at helping you parse
  * the standard input according to the problem statement.
  **/
+
+func dist(exitFloor, exitPos int, elevators [][]int) int {
+	return 0
+}
+
+func choose_elevator(nbAdditionalElevators, nbElevators, exitFloor, exitPos int, elevators [][]int) {
+	nbFloors := len(elevators)
+	/**
+	 * For every floor, I try to minimize the length
+	 * between current position and next one of next floor elevator
+	 * If result not good, I try to replace next floor elevator with a new one
+	 * If still not enough, either second-next floor should be replaced or both
+	 * This is an iterative process up to the top of the map
+	 **/
+}
 
 func main() {
 	// nbFloors: number of floors
@@ -15,19 +31,24 @@ func main() {
 	// exitFloor: floor on which the exit is found
 	// exitPos: position of the exit on its floor
 	// nbTotalClones: number of generated clones
-	// nbAdditionalElevators: ignore (always zero)
+	// nbAdditionalElevators: number of elevators which can be build
 	// nbElevators: number of elevators
 	var nbFloors, width, nbRounds, exitFloor, exitPos, nbTotalClones, nbAdditionalElevators, nbElevators int
 	fmt.Scan(&nbFloors, &width, &nbRounds, &exitFloor, &exitPos, &nbTotalClones, &nbAdditionalElevators, &nbElevators)
 
-	elevators := make([]int, nbFloors)
+	elevators := make([][]int, nbFloors)
 	for i := 0; i < nbElevators; i++ {
 		// elevatorFloor: floor on which this elevator is found
 		// elevatorPos: position of the elevator on its floor
 		var elevatorFloor, elevatorPos int
 		fmt.Scan(&elevatorFloor, &elevatorPos)
-		elevators[elevatorFloor] = elevatorPos
+		if elevators[elevatorFloor] == nil {
+			elevators[elevatorFloor] = make([]int, 0)
+		}
+		elevators[elevatorFloor] = append(elevators[elevatorFloor], elevatorPos)
 	}
+
+	// Find where to put elevatorPos
 
 	oneTurn := false
 	turn := 0
@@ -48,7 +69,7 @@ func main() {
 		if cloneFloor == exitFloor {
 			pos = exitPos
 		} else {
-			pos = elevators[cloneFloor]
+			pos = elevators[cloneFloor][0]
 		}
 
 		dir := direction == "RIGHT"
