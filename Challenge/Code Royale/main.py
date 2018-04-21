@@ -130,8 +130,9 @@ class Site(Circle):
 
 
 class StructureType(Enum):
-    BARRACK = 2
     EMPTY = -1
+    TOWER = 1
+    BARRACK = 2
 
 
 class ProductionType(Enum):
@@ -154,22 +155,34 @@ class Structure(Site):
 class Methods:
     @staticmethod
     def performQueenAction(queen, structures):
-        action1 = True
         print('---- {}'.format(queen.touchSite), file=sys.stderr)
         if queen.touchSite != -1:
             site = structures[queen.touchSite]
             if site.structureType == StructureType.EMPTY:
                 print('BUILD {} BARRACKS-KNIGHT'.format(site.id))
-                action1 = False
+                return
 
-        if action1:
-            closest_site = Methods.closest_site(queen, structures)
-            console.log('--------------------- DISTAAAAAAAAAAAANCE {}'.format(queen.to_circle().distance(closest_site)))
-            if closest_site:
-                step = queen.position.move(closest_site.centre, queen.maxDistance)
-                print('MOVE {} {}'.format(step.x, step.y))
+        owned = [structure_id for structure_id in structures if structures[structure_id].owner == OwnerType.ALLY]
+
+        if len(owned) >= 2:
+            origin = Position(Position.MIN_X, Position.MIN_Y)
+            max_position = Position(Position.MAX_X, Position.MAX_Y)
+            distanceOrigin = queen.position.distance(origin)
+            distanceMax = queen.position.distance(max_position)
+
+            if distanceOrigin < distanceMax:
+                print('MOVE {}'.format(origin))
             else:
-                print('WAIT')
+                print('MOVE {}'.format(max_position))
+
+            return
+
+        closest_site = Methods.closest_site(queen, structures)
+        if closest_site:
+            step = queen.position.move(closest_site.centre, queen.maxDistance)
+            print('MOVE {} {}'.format(step.x, step.y))
+        else:
+            print('WAIT')
 
     @staticmethod
     def closest_site(queen, sites):
@@ -186,6 +199,24 @@ class Methods:
 
         # Happens if we control every site
         return None
+
+    @staticmethod
+    def perform_training(_structures, _gold, _ennemy):
+        goldTurn = _gold
+
+        toTrain = []
+        for structure_id in _structures:
+            structure = _structures[structure_id]
+            if goldTurn < 80:
+                break
+            if structure.owner == OwnerType.ALLY and structure.structureType == StructureType.BARRACK and \
+                    structure.timeout == 0:
+                toTrain.append(structure_id)
+                goldTurn -= 80
+
+        toTrain.sort(key=(lambda structure_id: _structures[structure_id].centre.distance(_ennemy.position)))
+
+        return [str(structure) for structure in toTrain]
 
 
 # Beginning of the main method
@@ -226,4 +257,10 @@ while True:
     # Second line: A set of training instructions
     Methods.performQueenAction(queen, structures)
 
-    print('TRAIN')
+    ennemy_queen = [unit for unit in units if (unit.type == UnitType.QUEEN and unit.owner == OwnerType.ENEMY)][0]
+    toTrain = Methods.perform_training(structures, queen.gold, ennemy_queen)
+
+    if len(toTrain) > 0:
+        print('TRAIN ' + ' '.join(toTrain))
+    else:
+        print('TRAIN')
