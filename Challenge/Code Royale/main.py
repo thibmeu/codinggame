@@ -70,6 +70,11 @@ class Position:
         return ab
 
 
+class References(Enum):
+    ORIGIN = Position(Position.MIN_X, Position.MIN_Y)
+    LIMIT = Position(Position.MAX_X, Position.MAX_Y)
+
+
 class Circle:
     def __init__(self, _centre, _radius):
         self.centre = Position(_centre.x, _centre.y)
@@ -100,6 +105,7 @@ class UnitType(Enum):
     QUEEN = -1
     KNIGHT = 0
     ARCHER = 1
+    GIANT = 2
 
 
 class Unit:
@@ -131,6 +137,7 @@ class Site(Circle):
 
 class StructureType(Enum):
     EMPTY = -1
+    MINE = 0
     TOWER = 1
     BARRACK = 2
 
@@ -138,6 +145,7 @@ class StructureType(Enum):
 class ProductionType(Enum):
     KNIGHT = 0
     ARCHER = 1
+    GIANT = 2
 
 
 class Structure(Site):
@@ -145,42 +153,69 @@ class Structure(Site):
         site = kwargs[0]
         super().__init__(site.id, site.centre.x, site.centre.y, site.radius)
         self.ignored1 = kwargs[1]
-        self.ignored2 = kwargs[2]
-        self.structureType = StructureType(kwargs[3])
+        self.max_mine_size = kwargs[2]
+        self.type = StructureType(kwargs[3])
         self.owner = OwnerType(kwargs[4])
         self.timeout = kwargs[5]
         self.production = kwargs[6]
 
-
 class Methods:
+    current_tower = 0
+    mine_strengh = 1
+    tower_strengh = 1
+    mines_built = 0
+
+    @staticmethod
+    def get_owned(_structures, _type):
+        return [_structures[structure_id] for structure_id in _structures \
+                          if _structures[structure_id].owner == OwnerType.ALLY and \
+                          _structures[structure_id].type == _type]
+
     @staticmethod
     def performQueenAction(queen, structures):
-        print('---- {}'.format(queen.touchSite), file=sys.stderr)
+
+        owned_mine = Methods.get_owned(structures, StructureType.MINE)
+
+        owned_barracks = Methods.get_owned(structures, StructureType.BARRACK)
+        owned_towers = Methods.get_owned(structures, StructureType.TOWER)
+
         if queen.touchSite != -1:
             site = structures[queen.touchSite]
-            if site.structureType == StructureType.EMPTY:
-                print('BUILD {} BARRACKS-KNIGHT'.format(site.id))
+            if len(owned_towers) == 2:
+                Methods.current_tower = (Methods.current_tower + 1) % 2
+
+            if site.type == StructureType.EMPTY:
+                Methods.mine_strengh = 1
+                Methods.tower_strengh = 1
+
+                if Methods.mines_built < 3:
+                    print('BUILD {} MINE'.format(site.id))
+                    if Methods.mine_strengh == 1:
+                        Methods.mines_built += 1
+                elif len(owned_towers) < 2:
+                    print('BUILD {} TOWER'.format(site.id))
+                elif len(owned_barracks) == 0:
+                    print('BUILD {} BARRACKS-KNIGHT'.format(site.id))
                 return
-
-        owned = [structure_id for structure_id in structures if structures[structure_id].owner == OwnerType.ALLY]
-
-        if len(owned) >= 2:
-            origin = Position(Position.MIN_X, Position.MIN_Y)
-            max_position = Position(Position.MAX_X, Position.MAX_Y)
-            distanceOrigin = queen.position.distance(origin)
-            distanceMax = queen.position.distance(max_position)
-
-            if distanceOrigin < distanceMax:
-                print('MOVE {}'.format(origin))
             else:
-                print('MOVE {}'.format(max_position))
+                if site.type == StructureType.MINE and Methods.mine_strengh < site.max_mine_size:
+                    Methods.mine_strengh += 1
+                    print('BUILD {} MINE'.format(site.id))
+                    return
+                elif site.type == StructureType.TOWER and Methods.tower_strengh < 3:
+                    Methods.tower_strengh += 1
+                    print('BUILD {} TOWER'.format(site.id))
+                    return
 
+        if len(owned_towers) >= 2 and len(owned_barracks) >= 1:
+            tower = owned_towers[Methods.current_tower]
+            print('MOVE {} {}'.format(tower.centre.x, tower.centre.y))
             return
 
         closest_site = Methods.closest_site(queen, structures)
         if closest_site:
-            step = queen.position.move(closest_site.centre, queen.maxDistance)
-            print('MOVE {} {}'.format(step.x, step.y))
+            # step = queen.position.move(closest_site.centre, queen.maxDistance)
+            print('MOVE {} {}'.format(closest_site.centre.x, closest_site.centre.y))
         else:
             print('WAIT')
 
@@ -193,7 +228,7 @@ class Methods:
 
         site_distances.sort(key=(lambda x: x['distance']))
         for site in site_distances:
-            if sites[site['site_id']].structureType == StructureType.EMPTY \
+            if sites[site['site_id']].type == StructureType.EMPTY \
                     or sites[site['site_id']].owner == OwnerType.ENEMY:
                 return sites[site['site_id']]
 
@@ -209,7 +244,7 @@ class Methods:
             structure = _structures[structure_id]
             if goldTurn < 80:
                 break
-            if structure.owner == OwnerType.ALLY and structure.structureType == StructureType.BARRACK and \
+            if structure.owner == OwnerType.ALLY and structure.type == StructureType.BARRACK and \
                     structure.timeout == 0:
                 toTrain.append(structure_id)
                 goldTurn -= 80
