@@ -159,11 +159,27 @@ class Structure(Site):
         self.timeout = kwargs[5]
         self.production = kwargs[6]
 
+class Action(Enum):
+    START = ''
+    BARRACK = 'BARRACK-KNIGHT'
+    TOWER = 'TOWER'
+    MINE = 'MINE'
+
+    def build(self, _site_id):
+        if self == Action.START:
+            return ''
+        return 'BUILD {} {}'.format(self.value, _site_id)
+
 class Methods:
     current_tower = 0
     mine_strengh = 1
     tower_strengh = 1
     mines_built = 0
+    owned_mines = 0
+    owned_barracks = 0
+    owned_towers = 0
+    current_action = Action.MINE
+    current_destination = 0
 
     @staticmethod
     def get_owned(_structures, _type):
@@ -172,50 +188,64 @@ class Methods:
                           _structures[structure_id].type == _type]
 
     @staticmethod
+    def next_action(_queen, _structures):
+        structure = _structures[_queen.touchSite]
+
+        if Methods.current_action == Action.START:
+            Methods.current_action = Action.MINE
+            Methods.next_destination(_queen, _structures)
+
+        elif Methods.current_action == Action.MINE:
+            if Methods.mines_built < 3 or Methods.mine_strengh < structure.max_mine_size:
+                Methods.current_action = Action.MINE
+                Methods.mine_strengh += 1
+                if Methods.mine_strengh == 1:
+                    Methods.mines_built += 1
+            else:
+                Methods.current_action = Action.BARRACK
+                Methods.next_destination(_queen, _structures)
+
+        elif Methods.current_action == Action.BARRACK:
+            Methods.current_action = Action.TOWER
+            Methods.next_destination(_queen, _structures)
+
+
+    @staticmethod
+    def next_destination(_queen, _structures):
+
+        if Methods.current_action == Action.TOWER and Methods.owned_towers >= 2:
+            if Methods.tower_strengh >= 3:
+                Methods.current_destination = Methods.next_tower()
+
+        else:
+            Methods.current_destination = Methods.closest_site(_queen, _structures)
+
+    @staticmethod
+    def next_tower():
+        towers = Methods.get_owned(structures, StructureType.TOWER)
+        Methods.current_tower = (Methods.current_tower + 1)%2
+        return towers[Methods.current_tower]
+
+    @staticmethod
     def performQueenAction(queen, structures):
 
-        owned_mine = Methods.get_owned(structures, StructureType.MINE)
+        if Methods.current_action == Action.START:
+            Methods.next_action(queen, structures)
 
-        owned_barracks = Methods.get_owned(structures, StructureType.BARRACK)
-        owned_towers = Methods.get_owned(structures, StructureType.TOWER)
+        Methods.owned_mine = len(Methods.get_owned(structures, StructureType.MINE))
+        Methods.owned_barracks = len(Methods.get_owned(structures, StructureType.BARRACK))
+        Methods.owned_towers = len(Methods.get_owned(structures, StructureType.TOWER))
 
         if queen.touchSite != -1:
             site = structures[queen.touchSite]
-            if len(owned_towers) == 2:
-                Methods.current_tower = (Methods.current_tower + 1) % 2
-
-            if site.type == StructureType.EMPTY:
-                Methods.mine_strengh = 1
-                Methods.tower_strengh = 1
-
-                if Methods.mines_built < 3:
-                    print('BUILD {} MINE'.format(site.id))
-                    if Methods.mine_strengh == 1:
-                        Methods.mines_built += 1
-                elif len(owned_towers) < 2:
-                    print('BUILD {} TOWER'.format(site.id))
-                elif len(owned_barracks) == 0:
-                    print('BUILD {} BARRACKS-KNIGHT'.format(site.id))
-                return
-            else:
-                if site.type == StructureType.MINE and Methods.mine_strengh < site.max_mine_size:
-                    Methods.mine_strengh += 1
-                    print('BUILD {} MINE'.format(site.id))
-                    return
-                elif site.type == StructureType.TOWER and Methods.tower_strengh < 3:
-                    Methods.tower_strengh += 1
-                    print('BUILD {} TOWER'.format(site.id))
-                    return
-
-        if len(owned_towers) >= 2 and len(owned_barracks) >= 1:
-            tower = owned_towers[Methods.current_tower]
-            print('MOVE {} {}'.format(tower.centre.x, tower.centre.y))
+            print(Methods.current_action.build(site))
+            Methods.next_action(queen, structures)
             return
 
-        closest_site = Methods.closest_site(queen, structures)
-        if closest_site:
+        destination_site = structures[Methods.current_destination]
+        if destination_site:
             # step = queen.position.move(closest_site.centre, queen.maxDistance)
-            print('MOVE {} {}'.format(closest_site.centre.x, closest_site.centre.y))
+            print('MOVE {} {}'.format(destination_site.centre.x, destination_site.centre.y))
         else:
             print('WAIT')
 
